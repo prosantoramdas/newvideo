@@ -3,37 +3,52 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
-app.get('/scrape', async (req, res) => {
-  try {
-    // Fetch HTML content using Axios
-    const url = req.query.url || 'https://stream.crichd.vip/update/star.php';
-    const response = await axios.get(url);
-    const htmlContent = response.data;
+app.get('/hi',(req,res)=>{
+  res.send('hi')
+})
 
-    // Parse HTML content with Cheerio
-    const $ = cheerio.load(htmlContent);
+// Define an endpoint that takes a URL as a parameter
+app.get('/', async (req, res) => {
+    const customUrl = req.query.url;
 
-    // Log the entire HTML content to the console
-    console.log($.html());
+    // Check if the URL is provided
+    if (!customUrl) {
+        return res.status(400).json({ error: 'Please provide a URL in the "url" query parameter.' });
+    }
 
-    // Extract information from the first iframe
-    const firstIframeSrc = $('iframe').first().attr('src');
+    try {
+        // Fetch HTML content using Axios
+        const response = await axios.get(customUrl);
+        const html = response.data;
 
-    // You can perform additional operations using Cheerio here if needed
+        // Load HTML content into Cheerio
+        const $ = cheerio.load(html);
 
-    // Send the modified HTML content and iframe src as a response
-    res.json({
-      htmlContent: $.html(),
-      firstIframeSrc: firstIframeSrc || 'No iframe found',
-    });
-  } catch (error) {
-    console.error('An error occurred:', error.message);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
+        // Extract the third script tag using Cheerio selectors
+        const thirdScriptContent = $('script').eq(2).html();
+
+        // Parse the JSON content of the third script tag
+        if (thirdScriptContent) {
+            const jsonContent = JSON.parse(thirdScriptContent);
+
+            // Check if the JSON contains a contentUrl
+            if (jsonContent && jsonContent.contentUrl) {
+                const contentUrl = jsonContent.contentUrl;
+                res.json({ contentUrl: contentUrl });
+            } else {
+                res.json({ message: 'No contentUrl found in the JSON.' });
+            }
+        } else {
+            res.json({ message: 'No content found in the third script tag.' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: `Error: ${error.message}` });
+    }
 });
 
+// Start the server
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+    console.log(`Server is running at http://localhost:${port}`);
 });
